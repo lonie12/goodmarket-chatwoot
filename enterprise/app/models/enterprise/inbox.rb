@@ -12,11 +12,27 @@ module Enterprise::Inbox
     super || captain_active?
   end
 
-  def captain_active?
-    captain_assistant.present? && more_responses?
+  # Goodmarket: Chatwoot's own per-account monthly cap (`more_responses?`
+  # below) never bites on a self-hosted install — `increment_response_usage`
+  # is a no-op unless `ChatwootApp.chatwoot_cloud?`, so `current_available`
+  # sits at `ChatwootApp.max_limit` (100,000) forever. Without a cap of our
+  # own, a single visitor spamming ONE conversation has no ceiling at all —
+  # one OpenAI call per message, unbounded. `conversation` is optional so
+  # `active_bot?` below (which has no specific conversation in view) keeps
+  # its old behavior.
+  CAPTAIN_MAX_RESPONSES_PER_CONVERSATION = 20
+
+  def captain_active?(conversation = nil)
+    captain_assistant.present? && more_responses? && within_conversation_captain_limit?(conversation)
   end
 
   private
+
+  def within_conversation_captain_limit?(conversation)
+    return true if conversation.blank?
+
+    conversation.messages.outgoing.where(sender_type: 'Captain::Assistant').count < CAPTAIN_MAX_RESPONSES_PER_CONVERSATION
+  end
 
   def more_responses?
     account.usage_limits[:captain][:responses][:current_available].positive?

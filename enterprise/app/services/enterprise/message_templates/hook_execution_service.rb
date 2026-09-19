@@ -10,7 +10,7 @@ module Enterprise::MessageTemplates::HookExecutionService
     # Captain was already about to answer.
     track_captain_eligibility
     return unless conversation.pending?
-    return perform_handoff unless inbox.captain_active?
+    return perform_handoff unless inbox.captain_active?(conversation)
 
     Captain::Conversation::ResponseSchedulerService.new(message: message).perform
   end
