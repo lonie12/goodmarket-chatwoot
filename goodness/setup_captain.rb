@@ -49,7 +49,21 @@ end
 internal_attrs = Internal::Accounts::InternalAttributesService.new(account)
 internal_attrs.manually_managed_features =
   (internal_attrs.manually_managed_features + %w[custom_tools]).uniq
-account.enable_features!("captain_integration_v2", "custom_tools")
+
+# `captain_integration` — the OLDER v1 flag, distinct from captain_integration_v2
+# above — gates most of the dashboard's Captain sidebar entries
+# (Overview/FAQs/Documents/Playground/Inboxes/Settings all use it as their
+# route meta's featureFlag). Removing CAPTAIN/CAPTAIN_CUSTOM_TOOLS from
+# app/javascript/dashboard/featureFlags.js's PREMIUM_FEATURES (to kill the
+# "Upgrade to use Captain AI" paywall) also removed the premium-fallback
+# branch those routes relied on for visibility — so without this flag
+# directly on, they simply vanish from the sidebar instead of just losing
+# their paywall. It's in STARTUP_PLAN_FEATURES, which — like
+# captain_integration_v2 — is NOT eligible for manually_managed_features
+# (that list only covers BUSINESS_PLAN_FEATURES + ENTERPRISE_PLAN_FEATURES),
+# so it carries the same "could get silently reconciled off again" risk;
+# nothing more to do about that today beyond noting it here.
+account.enable_features!("captain_integration_v2", "custom_tools", "captain_integration")
 
 # ── The assistant itself ─────────────────────────────────────────────────────
 assistant = Captain::Assistant.find_or_initialize_by(account: account, name: "Goodmarket Assistant")
