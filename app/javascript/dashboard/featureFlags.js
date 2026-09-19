@@ -56,10 +56,15 @@ export const FEATURE_FLAGS = {
   UNREAD_COUNT_FOR_FILTERS: 'unread_count_for_filters',
 };
 
+// Goodmarket: FEATURE_FLAGS.CAPTAIN and CAPTAIN_CUSTOM_TOOLS are deliberately
+// NOT in this list. Chatwoot's own paywall on the Captain Overview page reads
+// this array (via usePolicy().shouldShowPaywall), independent of the account
+// feature flags that already let Captain answer real conversations — leaving
+// them premium would show "Upgrade to use Captain AI" on that one page for a
+// feature that already works everywhere else. Same call already made for
+// Mailflare's own gated API dependency.
 export const PREMIUM_FEATURES = [
   FEATURE_FLAGS.SLA,
-  FEATURE_FLAGS.CAPTAIN,
-  FEATURE_FLAGS.CAPTAIN_CUSTOM_TOOLS,
   FEATURE_FLAGS.CUSTOM_ROLES,
   FEATURE_FLAGS.AUDIT_LOGS,
   FEATURE_FLAGS.HELP_CENTER,
