@@ -27,6 +27,28 @@ end
 # ── Feature flags — both required, independently (captain-conventions.md has
 # the reasoning: captain_integration_v2 is the assistant engine, custom_tools
 # is the tool-calling capability, and neither implies the other) ────────────
+#
+# Both are premium (`enterprise/config/premium_features.yml`), and Chatwoot's
+# own `Enterprise::Billing::ReconcilePlanFeaturesService` — triggered by any
+# Stripe billing event this install ever processes — DISABLES every premium
+# feature first and only re-enables what the account's plan_name entitles it
+# to. We have no plan_name (self-hosted, no subscription), so a reconcile run
+# turns both straight back off with no warning. Observed live: on 2026-09-19,
+# on within a few hours of being enabled.
+#
+# `manually_managed_features` is Chatwoot's own escape hatch for exactly this
+# — it is re-applied as the LAST step of that same reconcile, after the
+# plan-based enable/disable, so it survives future runs instead of being
+# silently reverted again. Only `custom_tools` can go in this list (its
+# validator checks against BUSINESS_PLAN_FEATURES + ENTERPRISE_PLAN_FEATURES
+# — captain_integration_v2 isn't a member of either, Chatwoot decides IT
+# separately via `captain_v2_default_eligible?`, which for a self-hosted
+# account with no `plan_name` currently comes out true; if that ever flips
+# back off, `account.internal_attributes['captain_v2_default_eligible']`
+# would need setting to `true` explicitly instead).
+internal_attrs = Internal::Accounts::InternalAttributesService.new(account)
+internal_attrs.manually_managed_features =
+  (internal_attrs.manually_managed_features + %w[custom_tools]).uniq
 account.enable_features!("captain_integration_v2", "custom_tools")
 
 # ── The assistant itself ─────────────────────────────────────────────────────
@@ -37,13 +59,35 @@ assistant.assign_attributes(
     "Only answer questions about Goodmarket: products, orders, delivery, payments (Goodpay), accounts and how the marketplace works.",
     "Refuse anything unrelated to Goodmarket — general knowledge, other companies, personal advice, coding help — and say this assistant only handles Goodmarket questions.",
     "Never invent an order status, a delivery date or an account detail. If a tool answers not_signed_in, tell the shopper to sign in first. If a tool answers not_found, say so plainly rather than guessing.",
-    "Never ask for or accept a password, OTP code or payment card number in the chat."
+    "Never ask for or accept a password, OTP code or payment card number in the chat.",
+    "Block queries that share or request sensitive personal information (e.g. phone numbers, passwords).",
+    "Reject queries that include offensive, discriminatory, or threatening language.",
+    "Deflect when the assistant is asked for legal or medical diagnosis or treatment."
   ],
   response_guidelines: [
     "Be concise and friendly, in the shopper's own language (French or English).",
     "When a tool returns order or account details, summarize them in plain language rather than dumping raw fields.",
     "If unsure, say so and offer to connect the shopper with a human agent rather than guessing."
-  ]
+  ],
+  # Dormant capabilities, now turned on:
+  #   feature_contact_attributes — lets Captain use the contact's own custom
+  #     attributes (city, locale, country, currency, delivery — already set
+  #     by the storefront widget) as context. This is exactly ticket 0142's
+  #     "context arrives by ownership" argument, just switched on.
+  #   feature_faq       — background job proposes FAQ entries from resolved
+  #     conversations, for a human to review (Captain > FAQs > pending).
+  #   feature_memory     — after a conversation resolves, Captain writes a
+  #     contact note summarizing it, for the next agent who opens the thread.
+  #   feature_citation   — cites the source document in an answer; a no-op
+  #     until Captain > Documents has something crawled, harmless either way.
+  # Merged, never replaced: config already carries auto_resolve_mode et al.,
+  # and a plain `config: {...}` assignment would wipe that out on every rerun.
+  config: assistant.config.merge(
+    "feature_contact_attributes" => true,
+    "feature_faq" => true,
+    "feature_memory" => true,
+    "feature_citation" => true
+  )
 )
 assistant.save!
 puts "assistant id=#{assistant.id} guardrails=#{assistant.guardrails.size}"
