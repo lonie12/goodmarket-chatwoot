@@ -22,6 +22,21 @@ export default {
       unreadMessageCount: 'conversation/getUnreadMessageCount',
     }),
   },
+  // Goodmarket: skip the "Start Conversation" landing card entirely — go
+  // straight where tapping it would (same guard: pre-chat form only when
+  // there is no conversation yet, otherwise straight to messages). Upstream
+  // Chatwoot has no setting for this (chatwoot/chatwoot#5962, #11228, both
+  // still open), so this is the smallest patch that gets it: one hook,
+  // reusing the exact method the button already called.
+  //
+  // Trade-off, on purpose: the "back" button from Messages/PreChatForm
+  // returns here, which now immediately forwards again — a visitor cannot
+  // "go back" to this screen anymore. Accepted rather than adding state to
+  // tell an initial mount apart from an explicit back-navigation for a
+  // screen we deliberately no longer want shown either way.
+  mounted() {
+    this.startConversation();
+  },
   methods: {
     startConversation() {
       if (this.preChatFormEnabled && !this.conversationSize) {
