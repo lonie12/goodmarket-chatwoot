@@ -91,6 +91,12 @@ module Concerns::Toolable
     headers['X-Chatwoot-Contact-Id'] = contact[:id].to_s if contact[:id]
     headers['X-Chatwoot-Contact-Email'] = contact[:email].to_s if contact[:email].present?
     headers['X-Chatwoot-Contact-Phone'] = contact[:phone_number].to_s if contact[:phone_number].present?
+    # Goodmarket: the storefront's own userId, set via the widget SDK's
+    # setUser(identifier, ...) for a signed-in shopper. Already computed in
+    # `state[:contact]` (RunnerStateHelper::CONTACT_STATE_ATTRIBUTES includes
+    # `identifier`) — this was the only header missing it, so a tool endpoint
+    # can tell WHICH account is asking, not just that the contact is verified.
+    headers['X-Chatwoot-Contact-Identifier'] = contact[:identifier].to_s if contact[:identifier].present?
   end
 
   def add_contact_inbox_headers(headers, contact_inbox)
